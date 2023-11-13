@@ -1,11 +1,8 @@
-Instagram DM bot with account switcher feature. This bot can send messages automatically in your list of usernames. It will send DMs and switch account automatically. It will switch account every 10 messages, so this means it will change account after it sends message to 10 usernames and then it will go to the next account.
+Instagram DM bot with account switcher feature. Runs the DMs in parallel allowing you send hundreds of messages in a short span of time (benchmarked to 105 messages in little over 12 minutes with 6 accounts!)
+
+<img width="461" alt="image" src="https://github.com/thewildofficial/insta-dm-bot/assets/52071834/567e349c-8ea2-4ecb-b78a-28b7b1c60833">
+
+For Internal use only, for consultation on usecase: DM thewildofficial on discord
 
 
-Setup Bot:
-Git clone this repo with this command --> git clone 
-Install requirements with this command --> pip install -r requirements.txt
-Open infos folder and fill your infos of accounts in accounts.json file, in messages.txt put your message list and in usernames.txt put you username list that you want to send dm.
-Run the bot with this command --> python run.py
-
-Donate: https://paypal.me/itzjamezz?country.x=US&locale.x=en_US
 

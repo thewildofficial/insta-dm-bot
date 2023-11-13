@@ -8,6 +8,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from random import randint, uniform
 from time import time, sleep
 import logging
+import pandas as pd
 import sqlite3
 
 DEFAULT_IMPLICIT_WAIT = 1
@@ -17,16 +18,15 @@ class InstaDM(object):
 
     def __init__(self, username, password, headless=True, instapy_workspace=None, profileDir=None):
         self.selectors = {
-            "accept_cookies": "//button[text()='Accept']",
-            "home_to_login_button": "//button[text()='Log In']",
+            "home_to_login_button": "//button[text()='Log in']",
             "username_field": "username",
             "password_field": "password",
-            "button_login": "//button/*[text()='Log In']",
+            "button_login": "//button/*[text()='Log in']",
             "login_check": "//*[@aria-label='Home'] | //button[text()='Save Info'] | //button[text()='Not Now']",
             "search_user": "queryBox",
-            "select_user": '//div[text()="{}"]',
+            "select_user": "//*[contains(text(), '')]",
             "name": "((//div[@aria-labelledby]/div/span//img[@data-testid='user-avatar'])[1]//..//..//..//div[2]/div[2]/div)[1]",
-            "next_button": "//button/*[text()='Next']",
+            "next_button": "//*[contains(text(), 'Next')]",
             "textarea": "//textarea[@placeholder]",
             "send": "//button[text()='Send']"
         }
@@ -39,15 +39,14 @@ class InstaDM(object):
 
         if headless:
             options.add_argument("--headless")
-
         mobile_emulation = {
             "userAgent": 'Mozilla/5.0 (Linux; Android 10.0; iPhone Xs Max Build/IML74K) AppleWebKit/535.19 (KHTML, like Gecko) Chrome/91.0.4472.77 Mobile Safari/535.19'
         }
         options.add_experimental_option("mobileEmulation", mobile_emulation)
         options.add_argument("--log-level=3")
 
-        self.driver = webdriver.Chrome(
-            executable_path=CM().install(), options=options)
+        self.driver = webdriver.Chrome(executable_path=CM().install(), options=options)
+        #self.driver = webdriver.Chrome(executable_path='/Users/aban/.wdm/drivers/chromedriver/mac64/119.0.6045.105/chromedriver-mac-arm64/chromedriver', options=options)
         self.driver.set_window_position(0, 0)
         self.driver.set_window_size(414, 936)
 
@@ -85,16 +84,8 @@ class InstaDM(object):
 
     def login(self, username, password):
         # homepage
-        self.driver.get('https://instagram.com/?hl=en')
+        self.driver.get('https://www.instagram.com/accounts/login/')
         self.__random_sleep__(3, 5)
-        if self.__wait_for_element__(self.selectors['accept_cookies'], 'xpath', 10):
-            self.__get_element__(
-                self.selectors['accept_cookies'], 'xpath').click()
-            self.__random_sleep__(3, 5)
-        if self.__wait_for_element__(self.selectors['home_to_login_button'], 'xpath', 10):
-            self.__get_element__(
-                self.selectors['home_to_login_button'], 'xpath').click()
-            self.__random_sleep__(5, 7)
 
         # login
         logging.info(f'Login with {username}')
@@ -110,9 +101,9 @@ class InstaDM(object):
                 self.selectors['button_login'], 'xpath').click()
             self.__random_sleep__()
             if self.__wait_for_element__(self.selectors['login_check'], 'xpath', 10):
-                print('Login Successful')
+                print(f' {username}: Login Successful')
             else:
-                print('Login Failed: Incorrect credentials')
+                print(f'Login Failed ({username}): Incorrect credentials')
 
     def createCustomGreeting(self, greeting):
         # Get username and add custom greeting
@@ -126,26 +117,21 @@ class InstaDM(object):
         return greeting
 
     def typeMessage(self, user, message):
-        # Go to page and type message
-        if self.__wait_for_element__(self.selectors['next_button'], "xpath"):
-            self.__get_element__(
-                self.selectors['next_button'], "xpath").click()
-            self.__random_sleep__()
+        self.__random_sleep__()
 
-        if self.__wait_for_element__(self.selectors['textarea'], "xpath"):
-            self.__type_slow__(self.selectors['textarea'], "xpath", message)
-            self.__random_sleep__()
+        for line in message:
+            self.driver.switch_to.active_element.send_keys(line)
+            self.driver.switch_to.active_element.send_keys(Keys.SHIFT + Keys.ENTER)
+        self.driver.switch_to.active_element.send_keys(Keys.RETURN)
+        self.__random_sleep__()
 
-        if self.__wait_for_element__(self.selectors['send'], "xpath"):
-            self.__get_element__(self.selectors['send'], "xpath").click()
-            self.__random_sleep__(3, 5)
-            print('Message sent successfully')
 
-    def sendMessage(self, user, message, greeting=None):
+
+
+    def sendMessage(self, user, message, greeting=None, file=None):
         logging.info(f'Send message to {user}')
-        print(f'Send message to {user}')
         self.driver.get('https://www.instagram.com/direct/new/?hl=en')
-        self.__random_sleep__(2, 4)
+        self.__random_sleep__(1, 2)
 
         try:
             self.__wait_for_element__(self.selectors['search_user'], "name")
@@ -156,12 +142,24 @@ class InstaDM(object):
                 greeting = self.createCustomGreeting(greeting)
 
             # Select user from list
-            elements = self.driver.find_elements_by_xpath(
-                self.selectors['select_user'].format(user))
+            elements = self.driver.find_elements_by_xpath(f"//*[contains(text(), '{user}')]")
+            #print(elements)
             if elements and len(elements) > 0:
                 elements[0].click()
+                self.__get_element__(self.selectors['next_button'], 'xpath').click()
                 self.__random_sleep__()
 
+
+
+                # Click the button if it exists
+                try:
+                    # Find the button with text "Not Now"
+                    not_now_button = self.driver.find_element_by_xpath("//button[contains(text(), 'Not Now')]")
+                    not_now_button.click()
+                    self.driver.refresh()
+                except:
+                    pass
+                
                 if greeting != None:
                     self.typeMessage(user, greeting + message)
                 else:
@@ -171,13 +169,24 @@ class InstaDM(object):
                     self.cursor.execute(
                         'INSERT INTO message (username, message) VALUES(?, ?)', (user, message))
                     self.conn.commit()
-                self.__random_sleep__(5, 10)
-
+                # update the CSV file with Reached? = Yes
+                if file is None:
+                    raise ValueError("CSV file reference not provided")
+                else:
+                    df = pd.read_csv('infos/' + file)
+                    df.loc[df['Username'] == user, 'Reached?'] = 'Yes'
+                    df.to_csv('infos/' + file, index=False)
+                self.__random_sleep__(2, 3)
                 return True
 
             # In case user has changed his username or has a private account
             else:
-                print(f'User {user} not found! Skipping.')
+                print(f'User {user} not found! Removing from list...')
+                # remove the username from the CSV file
+                if file != None:
+                    df = pd.read_csv('infos/' + file)
+                    df = df[df.Username != user]
+                    df.to_csv('infos/' + file, index=False)
                 return False
 
         except Exception as e:
@@ -209,6 +218,7 @@ class InstaDM(object):
                     self.__random_sleep__()
                 else:
                     print(f'User {user} not found! Skipping.')
+                    
 
             self.typeMessage(user, message)
 
@@ -252,7 +262,7 @@ class InstaDM(object):
             if self.__wait_for_element__(self.selectors['send'], "xpath"):
                 self.__get_element__(self.selectors['send'], "xpath").click()
                 self.__random_sleep__(3, 5)
-                print('Message sent successfully')
+
 
             if self.conn is not None:
                 self.cursor.executemany("""
